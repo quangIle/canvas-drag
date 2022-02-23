@@ -8,24 +8,13 @@ const useDrawPointCanvasViewModel = () => {
     if (webViewRef.current) return
     webViewRef.current = ref
     // webViewRef.current.injectJavaScript(`
-
+    // pickPointPad.undo()
     // `)
   }
   const handleMessageFromWebView = (e) => {
     const message = e.nativeEvent.data
     console.log("message from webview:", message)
   }
-  const initialHtmlScript = `
-    window.onresize = (event) => {            
-      window.ReactNativeWebView.postMessage(window.innerWidth)
-      const backgroundCanvas = document.getElementById("background")    
-      const bufferCanvas = document.getElementById("buffer")                  
-      backgroundCanvas.width = window.innerWidth
-      backgroundCanvas.height = window.innerHeight
-      bufferCanvas.width = window.innerWidth
-      bufferCanvas.height = window.innerHeight
-    }
-  `
   const webViewHtml = `
     <html>
       <head>
@@ -52,7 +41,6 @@ const useDrawPointCanvasViewModel = () => {
   `
   return {
     handleWebViewRef,
-    initialHtmlScript,
     webViewHtml,
     handleMessageFromWebView,
   }

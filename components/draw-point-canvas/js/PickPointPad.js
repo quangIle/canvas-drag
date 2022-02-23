@@ -7,7 +7,7 @@ const PickPointPad = (canvas, options) => {
   const dotSize = 10
   const lineWidth = 2
   const color = "black"
-  const history = []
+  const data = []
 
   let startX, startY, endX, endY
   let mouseButtonDown = false
@@ -50,16 +50,25 @@ const PickPointPad = (canvas, options) => {
       strokeEnd(touch)
     }
   }
-  const reset = () => {
-    hasArrow = false
+  const undo = () => {
+    if (data.length === 0) return
+    data.pop()
+    drawFromData(data)
   }
+  const resetAction = () => {
+    hasArrow = false
+  }  
   const endAction = () => {}
   const isOnInvalidPixel = (x, y) => {
     return false
-  }
+  }  
   const clearCanvas = (canvas) => {
     const ctx = canvas.getContext("2d")
     ctx.clearRect(0, 0, canvas.width, canvas.height)
+  }  
+  const drawFromData = (data) => {
+    clearCanvas(backgroundCanvas)
+    data.map((item) => drawArrow(ctxBackground, item.startX, item.startY, item.endX, item.endY))
   }
   const drawDot = (ctx, x, y) => {
     ctx.beginPath()
@@ -77,8 +86,8 @@ const PickPointPad = (canvas, options) => {
     const anglerad = (Math.PI * angle) / 180.0
     const lineangle = Math.atan2(y1 - y0, x1 - x0)
     
-    x1 = x0 + 50 * Math.cos(lineangle)
-    y1 = y0 + 50 * Math.sin(lineangle)
+    x1 = x0 + 30 * Math.cos(lineangle)
+    y1 = y0 + 30 * Math.sin(lineangle)
 
     ctx.beginPath()
     ctx.lineWidth = lineWidth
@@ -86,7 +95,7 @@ const PickPointPad = (canvas, options) => {
     
     //line
     ctx.moveTo(x0, y0)    
-    ctx.lineTo(x0 + 48 * Math.cos(lineangle), y0 + 48 * Math.sin(lineangle))    
+    ctx.lineTo(x0 + 28 * Math.cos(lineangle), y0 + 28 * Math.sin(lineangle))    
     ctx.stroke()
 
     //arrow
@@ -110,7 +119,7 @@ const PickPointPad = (canvas, options) => {
 
     if (isOnInvalidPixel(startX, startY)) return
     drawDot(ctxBuffer, startX, startY)
-    reset()
+    resetAction()
   }
   const strokeMoveUpdate = (event) => {
     hasArrow = true    
@@ -123,9 +132,9 @@ const PickPointPad = (canvas, options) => {
   }
   const savePointToBackground = () => {
     drawArrow(ctxBackground, startX, startY, endX, endY)
-    window.ReactNativeWebView.postMessage("save")
-  }
-
+    data.push({startX, startY, endX, endY})
+    window.ReactNativeWebView.postMessage(data.length)    
+  } 
   const handlePointerEvents = () => {
     mouseButtonDown = false
     bufferCanvas.addEventListener("pointerdown", handleMouseDown)
@@ -143,8 +152,7 @@ const PickPointPad = (canvas, options) => {
     bufferCanvas.addEventListener("touchmove", handleTouchMove)
     bufferCanvas.addEventListener("touchend", handleTouchEnd)
   }
-  const handleEvent = () => {
-    window.ReactNativeWebView.postMessage("init")
+  const handleEvent = () => {    
     bufferCanvas.style.touchAction = "none"
     bufferCanvas.style.msTouchAction = "none"
     if (window.PointerEvent) {
@@ -156,8 +164,7 @@ const PickPointPad = (canvas, options) => {
       }
     }
   }
-  const resize = () => {
-    window.ReactNativeWebView.postMessage(backgroundCanvas.offsetWidth)
+  const resize = () => {    
     const ratio = Math.max(window.devicePixelRatio || 1, 1)
     backgroundCanvas.width = backgroundCanvas.offsetWidth * ratio
     backgroundCanvas.height = backgroundCanvas.offsetHeight * ratio
@@ -167,12 +174,23 @@ const PickPointPad = (canvas, options) => {
     bufferCanvas.height = backgroundCanvas.height
     ctxBuffer.scale(ratio, ratio)
   }
+  const getPointsData = () => {
+
+  }
+  const init = () => {
+    window.ReactNativeWebView.postMessage("init")
+    handleEvent()
+    resize()
+  }
   //***************************************
-  handleEvent()
-  resize()
+  init()
+  return {
+    undo, 
+    getPointsData
+  }
 }
 const backgroundCanvas = document.getElementById("background")
 const bufferCanvas = document.getElementById("buffer")
 
-PickPointPad({ backgroundCanvas, bufferCanvas })
+const pickPointPad = PickPointPad({ backgroundCanvas, bufferCanvas })
 `
