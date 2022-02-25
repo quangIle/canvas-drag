@@ -1,7 +1,19 @@
-import { useRef } from "react"
+import { useImperativeHandle, useMemo, useRef } from "react"
 import PickPointPadHtml from "./js/PickPointPad"
 
-const useDrawPointCanvasViewModel = () => {
+const useDrawPointCanvasViewModel = (props, ref) => {
+  const {
+    dotSize = 5,
+    lineWidth = 2,
+    dotColor = "black",
+    arrowColor = "black",
+    invalidColors = [],
+    arrowHeadLength = 15,
+    arrowAngle = 30,
+    lineLength = 25,
+    lineMargin = 5,
+    onGetPointsData = () => {},
+  } = props
   const webViewRef = useRef()
 
   const handleWebViewRef = (ref) => {
@@ -12,10 +24,18 @@ const useDrawPointCanvasViewModel = () => {
     // `)
   }
   const handleMessageFromWebView = (e) => {
-    const message = e.nativeEvent.data
-    console.log("message from webview:", message)
+    const data = e.nativeEvent.data
+    switch (data) {
+      case "CREATE":
+        console.log("Initialize Canvas")
+        break
+
+      default:
+        onGetPointsData(JSON.parse(data))
+        break
+    }
   }
-  const webViewHtml = `
+  const templateHtml = (script) => `
     <html>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
@@ -34,15 +54,54 @@ const useDrawPointCanvasViewModel = () => {
         <canvas id="buffer" 
           style="position: absolute; left: 0; top: 0; z-index: 1; width: 100%; height: 100%"></canvas>
         <script>
-          ${PickPointPadHtml}
+          ${script}
         </script>
       </body>
     </html >
   `
+  const replaceScriptVariable = (script) => {
+    script = script.replace(/<%dotSize%>/, dotSize)
+    script = script.replace(/<%lineWidth%>/, lineWidth)
+    script = script.replace(/<%dotColor%>/, JSON.stringify(dotColor))
+    script = script.replace(/<%arrowColor%>/, JSON.stringify(arrowColor))
+    script = script.replace(/<%invalidColors%>/, JSON.stringify(invalidColors))
+    script = script.replace(/<%arrowHeadLength%>/, arrowHeadLength)
+    script = script.replace(/<%arrowAngle%>/, arrowAngle)
+    script = script.replace(/<%lineLength%>/, lineLength)
+    script = script.replace(/<%lineMargin%>/, lineMargin)
+    return script
+  }
+  const webViewSource = useMemo(() => {
+    const pickPointPad = replaceScriptVariable(PickPointPadHtml)
+    const html = templateHtml(pickPointPad)
+    return { html }
+  }, [
+    dotSize,
+    lineWidth,
+    dotColor,
+    arrowColor,
+    invalidColors,
+    arrowHeadLength,
+    arrowAngle,
+  ])
+  useImperativeHandle(
+    ref,
+    () => ({
+      undo: () => {
+        if (webViewRef.current)
+          webViewRef.current.injectJavaScript("pickPointPad.undo()")
+      },
+      getPointsData: () => {
+        if (webViewRef.current)
+          webViewRef.current.injectJavaScript("pickPointPad.getPointsData()")
+      },
+    }),
+    [webViewRef]
+  )
   return {
     handleWebViewRef,
-    webViewHtml,
     handleMessageFromWebView,
+    webViewSource,
   }
 }
 export default useDrawPointCanvasViewModel

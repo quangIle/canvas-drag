@@ -4,29 +4,40 @@ const PickPointPad = (canvas, options) => {
   const { backgroundCanvas, bufferCanvas } = canvas
   const ctxBackground = backgroundCanvas.getContext("2d")
   const ctxBuffer = bufferCanvas.getContext("2d")
-  const dotSize = 10
-  const lineWidth = 2
-  const color = "black"
-  const data = []
-
-  let startX, startY, endX, endY
-  let mouseButtonDown = false
-  let hasArrow = false
+  
+  const dotSize = <%dotSize%>
+  const lineWidth = <%lineWidth%>
+  const dotColor = <%dotColor%>
+  const arrowColor = <%arrowColor%>
+  const invalidColors = <%invalidColors%>
+  const arrowHeadLength = <%arrowHeadLength%>
+  const arrowAngle = <%arrowAngle%>
+  const lineLength = <%lineLength%>
+  const lineMargin = <%lineMargin%> // to avoid weird shape arrow
+  
+  const _ratio = Math.max(window.devicePixelRatio || 1, 1)
+  const _angleRadian = (Math.PI * arrowAngle) / 180.0
+  const _data = []
+  
+  let _startX, _startY, _endX, _endY
+  let _mouseButtonDown = false
+  let _isOnInvalidPixel = false
+  let _hasArrow = false
 
   const handleMouseDown = (event) => {
-    if (event.which === 1 && !mouseButtonDown) {
-      mouseButtonDown = true
+    if (event.which === 1 && !_mouseButtonDown) {
+      _mouseButtonDown = true
       strokeBegin(event)
     }
   }
   const handleMouseMove = (event) => {
-    if (mouseButtonDown) {
+    if (_mouseButtonDown) {
       strokeMoveUpdate(event)
     }
   }
   const handleMouseUp = (event) => {
-    if (event.which === 1 && mouseButtonDown) {
-      mouseButtonDown = false
+    if (event.which === 1 && _mouseButtonDown) {
+      _mouseButtonDown = false
       strokeEnd(event)
     }
   }
@@ -51,98 +62,109 @@ const PickPointPad = (canvas, options) => {
     }
   }
   const undo = () => {
-    if (data.length === 0) return
-    data.pop()
-    drawFromData(data)
+    if (_data.length === 0) return
+    _data.pop()
+    drawFromData(_data)
   }
   const resetAction = () => {
-    hasArrow = false
+    _hasArrow = false
+    _isOnInvalidPixel = false
   }  
   const endAction = () => {}
-  const isOnInvalidPixel = (x, y) => {
-    return false
+  const getPixelColor = (x, y) => {
+    x = x*_ratio
+    y = y*_ratio
+    const pixel = ctxBackground.getImageData(x, y, 1, 1)._data  
+
+    const {0: r, 1: g, 2: b} = pixel
+    // window.ReactNativeWebView.postMessage("#"+("000000" +((r << 16) | (g << 8) | b).toString(16)).slice(-6))  
+    return "#"+("000000" +((r << 16) | (g << 8) | b).toString(16)).slice(-6)    
   }  
   const clearCanvas = (canvas) => {
     const ctx = canvas.getContext("2d")
     ctx.clearRect(0, 0, canvas.width, canvas.height)
   }  
-  const drawFromData = (data) => {
+  const drawFromData = (_data) => {
     clearCanvas(backgroundCanvas)
-    data.map((item) => drawArrow(ctxBackground, item.startX, item.startY, item.endX, item.endY))
+    _data.map((item) => drawArrow(ctxBackground, item._startX, item._startY, item._endX, item._endY))
   }
   const drawDot = (ctx, x, y) => {
     ctx.beginPath()
     ctx.moveTo(x, y)
     ctx.arc(x, y, dotSize, 0, 2 * Math.PI, false)
     ctx.closePath()
-    ctx.fillStyle = color
+    ctx.fillStyle = dotColor
     ctx.fill()
   }
-  const drawArrow = (ctx, x0, y0, x1, y1) => {        
-    drawDot(ctx, x0, y0)     
-
-    const radius = 20
-    const angle = 50
-    const anglerad = (Math.PI * angle) / 180.0
-    const lineangle = Math.atan2(y1 - y0, x1 - x0)
+  const drawArrow = (ctx, x0, y0, x1, y1) => {                
+    const lineAngle = Math.atan2(y1 - y0, x1 - x0)
     
-    x1 = x0 + 30 * Math.cos(lineangle)
-    y1 = y0 + 30 * Math.sin(lineangle)
+    x1 = x0 + lineLength * Math.cos(lineAngle)
+    y1 = y0 + lineLength * Math.sin(lineAngle)
 
     ctx.beginPath()
     ctx.lineWidth = lineWidth
-    ctx.strokeStyle = color
+    ctx.strokeStyle = arrowColor
     
     //line
     ctx.moveTo(x0, y0)    
-    ctx.lineTo(x0 + 28 * Math.cos(lineangle), y0 + 28 * Math.sin(lineangle))    
+    ctx.lineTo(x0 + (lineLength - lineMargin) * Math.cos(lineAngle), y0 + (lineLength - lineMargin) * Math.sin(lineAngle))    
     ctx.stroke()
 
     //arrow
     ctx.moveTo(x1, y1)
     ctx.lineTo(
-      x1 - radius * Math.cos(lineangle - anglerad / 2.0),
-      y1 - radius * Math.sin(lineangle - anglerad / 2.0)
+      x1 - arrowHeadLength * Math.cos(lineAngle - _angleRadian / 2.0),
+      y1 - arrowHeadLength * Math.sin(lineAngle - _angleRadian / 2.0)
     )    
     ctx.lineTo(
-      x1 - radius * Math.cos(lineangle + anglerad / 2.0),
-      y1 - radius * Math.sin(lineangle + anglerad / 2.0)
+      x1 - arrowHeadLength * Math.cos(lineAngle + _angleRadian / 2.0),
+      y1 - arrowHeadLength * Math.sin(lineAngle + _angleRadian / 2.0)
     )
+    ctx.fillStyle = arrowColor
     ctx.fill()  
     ctx.closePath()
-    endX = x1
-    endY = y1
+
+    drawDot(ctx, x0, y0)     
+
+    _endX = x1
+    _endY = y1
   }
   const strokeBegin = (event) => {    
-    startX = event.clientX
-    startY = event.clientY
-
-    if (isOnInvalidPixel(startX, startY)) return
-    drawDot(ctxBuffer, startX, startY)
     resetAction()
+
+    _startX = event.clientX
+    _startY = event.clientY
+    const pixelColor = getPixelColor(_startX, _startY)
+    if (invalidColors.includes(pixelColor))
+    {
+      _isOnInvalidPixel = true
+      return
+    }
+    drawDot(ctxBuffer, _startX, _startY)
   }
   const strokeMoveUpdate = (event) => {
-    hasArrow = true    
+    if (_isOnInvalidPixel) return
+    _hasArrow = true    
     clearCanvas(bufferCanvas)
-    drawArrow(ctxBuffer, startX, startY, event.clientX, event.clientY)
+    drawArrow(ctxBuffer, _startX, _startY, event.clientX, event.clientY)
   }
   const strokeEnd = (event) => {        
-    if (hasArrow) savePointToBackground()    
+    if (_hasArrow) savePointToBackground()    
     clearCanvas(bufferCanvas)
   }
   const savePointToBackground = () => {
-    drawArrow(ctxBackground, startX, startY, endX, endY)
-    data.push({startX, startY, endX, endY})
-    window.ReactNativeWebView.postMessage(data.length)    
+    drawArrow(ctxBackground, _startX, _startY, _endX, _endY)
+    _data.push({_startX, _startY, _endX, _endY})       
   } 
   const handlePointerEvents = () => {
-    mouseButtonDown = false
+    _mouseButtonDown = false
     bufferCanvas.addEventListener("pointerdown", handleMouseDown)
     bufferCanvas.addEventListener("pointermove", handleMouseMove)
     document.addEventListener("pointerup", handleMouseUp)
   }
   const handleMouseEvents = () => {
-    mouseButtonDown = false
+    _mouseButtonDown = false
     bufferCanvas.addEventListener("mousedown", handleMouseDown)
     bufferCanvas.addEventListener("mousemove", handleMouseMove)
     document.addEventListener("mouseup", handleMouseUp)
@@ -164,23 +186,27 @@ const PickPointPad = (canvas, options) => {
       }
     }
   }
-  const resize = () => {    
-    const ratio = Math.max(window.devicePixelRatio || 1, 1)
-    backgroundCanvas.width = backgroundCanvas.offsetWidth * ratio
-    backgroundCanvas.height = backgroundCanvas.offsetHeight * ratio
-    ctxBackground.scale(ratio, ratio)
+  const resize = () => {        
+    backgroundCanvas.width = backgroundCanvas.offsetWidth * _ratio
+    backgroundCanvas.height = backgroundCanvas.offsetHeight * _ratio
+    ctxBackground.scale(_ratio, _ratio)
 
     bufferCanvas.width = backgroundCanvas.width
     bufferCanvas.height = backgroundCanvas.height
-    ctxBuffer.scale(ratio, ratio)
+    ctxBuffer.scale(_ratio, _ratio)    
   }
   const getPointsData = () => {
-
+    window.ReactNativeWebView.postMessage(JSON.stringify(_data)) 
   }
   const init = () => {
-    window.ReactNativeWebView.postMessage("init")
+    window.ReactNativeWebView.postMessage("CREATE")
     handleEvent()
     resize()
+    ctxBackground.beginPath()
+    ctxBackground.rect(50, 50, 300, 700)
+    ctxBackground.closePath()
+    ctxBackground.fillStyle = "#123456"
+    ctxBackground.fill()
   }
   //***************************************
   init()
