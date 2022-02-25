@@ -14,7 +14,11 @@ export default function App() {
   }
   return (
     <View style={styles.container}>
-      <DrawPointCanvas ref={ref} onGetPointsData={handlePointsData} />
+      <DrawPointCanvas
+        ref={ref}
+        onGetPointsData={handlePointsData}
+        invalidColors={["#123456"]}
+      />
     </View>
   )
 }

@@ -69,12 +69,11 @@ const PickPointPad = (canvas, options) => {
   const resetAction = () => {
     _hasArrow = false
     _isOnInvalidPixel = false
-  }  
-  const endAction = () => {}
+  }    
   const getPixelColor = (x, y) => {
     x = x*_ratio
     y = y*_ratio
-    const pixel = ctxBackground.getImageData(x, y, 1, 1)._data  
+    const pixel = ctxBackground.getImageData(x, y, 1, 1).data  
 
     const {0: r, 1: g, 2: b} = pixel
     // window.ReactNativeWebView.postMessage("#"+("000000" +((r << 16) | (g << 8) | b).toString(16)).slice(-6))  
@@ -135,7 +134,7 @@ const PickPointPad = (canvas, options) => {
 
     _startX = event.clientX
     _startY = event.clientY
-    const pixelColor = getPixelColor(_startX, _startY)
+    const pixelColor = getPixelColor(_startX, _startY)    
     if (invalidColors.includes(pixelColor))
     {
       _isOnInvalidPixel = true
